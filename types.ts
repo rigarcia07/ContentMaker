@@ -6,6 +6,7 @@ export interface ContentBrief {
   objective: string;
   targetAudience: string;
   coreContent: string;
+  selectedChannels: string[];
 }
 
 export interface BrandAnalysis {

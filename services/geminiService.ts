@@ -4,16 +4,64 @@ import { ContentBrief, ContentPlan } from "../types";
 
 const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
 
+export const recommendChannels = async (brief: Partial<ContentBrief>): Promise<string[]> => {
+  const ai = getAI();
+  const prompt = `
+    Based on the following marketing context, identify the top 4 most effective channels for content distribution.
+    
+    Industry: ${brief.industry}
+    Objective: ${brief.objective}
+    Target Audience: ${brief.targetAudience}
+
+    Available Channel IDs:
+    - linkedin_post
+    - linkedin_article
+    - linkedin_ad
+    - twitter
+    - newsletter
+    - blog
+    - instagram_post
+    - instagram_reel
+    - instagram_ad
+    - facebook_post
+    - facebook_ad
+    - youtube_video
+    - youtube_short
+
+    Return ONLY a JSON array of the recommended Channel IDs.
+  `;
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: { type: Type.STRING }
+      }
+    }
+  });
+
+  try {
+    return JSON.parse(response.text || '[]');
+  } catch (e) {
+    return [];
+  }
+};
+
 export const generateTurkeySlices = async (brief: ContentBrief): Promise<ContentPlan> => {
   const ai = getAI();
+  const channelsStr = brief.selectedChannels.join(", ");
+  
   const prompt = `
     Act as a world-class content strategist and brand analyst. 
     
     STEP 1: RESEARCH
-    Use the company website ${brief.companyWebsite} and company name ${brief.companyName} to identify their brand identity, tone of voice, personality, and primary colors.
+    Use the company website ${brief.companyWebsite} and company name ${brief.companyName} to identify their brand identity, tone of voice, personality, and primary colors. Use Google Search to find recent brand assets or marketing style.
     
     STEP 2: CONTENT PIPELINE
-    Using the "Turkey Slicing Method", take the following "Core Content" and slice it into a multi-channel pipeline.
+    Using the "Turkey Slicing Method", take the following "Core Content" and slice it into a multi-channel pipeline for these specific channels: ${channelsStr}.
     
     Industry: ${brief.industry}
     Objective: ${brief.objective}
@@ -22,10 +70,17 @@ export const generateTurkeySlices = async (brief: ContentBrief): Promise<Content
     Core Content: 
     ${brief.coreContent}
 
-    Guidelines:
-    1. Identify slices for: LinkedIn, Twitter (X), Professional Blog, and Email Newsletter.
-    2. For each slice, create a highly specific 'imagePrompt' that would be used by an AI image generator to create a visual that fits the brand's aesthetic and the specific channel format.
-    3. Ensure the tone matches the brand identity discovered from the website.
+    Guidelines for Specific Channels:
+    - LinkedIn Post: Professional thought leadership, punchy, conversational yet authoritative.
+    - LinkedIn Article: Long-form, detailed breakdown, expert insight.
+    - LinkedIn Ad: Business-oriented, problem-solution focus, high professional friction CTA.
+    - Instagram Reels/YouTube Shorts: Provide a high-energy script with visual cues.
+    - Instagram/Facebook Ads: Focus on high-conversion copy and clear psychological triggers.
+    - Twitter/X: Punchy, hook-heavy threads or single posts.
+    - YouTube Long-form: A structured video outline or script segment.
+    
+    For each slice, create a highly specific 'imagePrompt' for an AI image generator. If the format is vertical (Reels/Shorts), note that in the prompt.
+    Ensure the tone matches the brand identity discovered from the website.
   `;
 
   const response = await ai.models.generateContent({
@@ -75,9 +130,11 @@ export const generateTurkeySlices = async (brief: ContentBrief): Promise<Content
   return JSON.parse(response.text || '{}');
 };
 
-export const generateImageForSlice = async (imagePrompt: string, brandAnalysis: any): Promise<string> => {
+export const generateImageForSlice = async (imagePrompt: string, brandAnalysis: any, channel: string): Promise<string> => {
   const ai = getAI();
-  const fullPrompt = `Style: Professional and modern, following these brand traits: ${brandAnalysis.personality}. Tone: ${brandAnalysis.tone}. Visual Content: ${imagePrompt}`;
+  const isVertical = channel.toLowerCase().includes('reel') || channel.toLowerCase().includes('short') || channel.toLowerCase().includes('story');
+  
+  const fullPrompt = `Style: Professional and high-end, following brand personality: ${brandAnalysis.personality}. Colors: ${brandAnalysis.suggestedColors.join(', ')}. Context: ${imagePrompt}`;
   
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image',
@@ -86,7 +143,7 @@ export const generateImageForSlice = async (imagePrompt: string, brandAnalysis: 
     },
     config: {
       imageConfig: {
-        aspectRatio: "16:9"
+        aspectRatio: isVertical ? "9:16" : "16:9"
       }
     }
   });

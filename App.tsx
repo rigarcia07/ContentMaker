@@ -15,18 +15,12 @@ const App: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      // Step 1: Research and Slice
       const plan = await generateTurkeySlices(brief);
       setContentPlan(plan);
       
-      // Step 2: Parallel Image Generation (Background)
-      const slicesWithImages = [...plan.slices];
-      
-      // We don't await all images before showing the plan, but we start generating them
-      const imagePromises = plan.slices.map(async (slice, index) => {
+      plan.slices.forEach(async (slice, index) => {
         try {
-          const imageUrl = await generateImageForSlice(slice.imagePrompt, plan.brandAnalysis);
-          // Update the specific slice in state
+          const imageUrl = await generateImageForSlice(slice.imagePrompt, plan.brandAnalysis, slice.channel);
           setContentPlan(prev => {
             if (!prev) return null;
             const newSlices = [...prev.slices];
@@ -38,17 +32,115 @@ const App: React.FC = () => {
         }
       });
 
-      // Smooth scroll to results
       setTimeout(() => {
         document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
       
     } catch (err) {
       console.error(err);
-      setError("Failed to generate brand-aligned pipeline. Please check inputs and try again.");
+      setError("Failed to generate brand-aligned pipeline. Please ensure the website URL is valid and the API key is active.");
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleDownloadPDF = () => {
+    if (!contentPlan) return;
+
+    // Use the global jsPDF instance from the CDN
+    const { jsPDF } = (window as any).jspdf;
+    const doc = new jsPDF();
+    const margin = 20;
+    let y = margin;
+
+    // Title
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text("ContentCrafter Strategy Report", margin, y);
+    y += 12;
+
+    doc.setFontSize(16);
+    doc.setTextColor(100, 100, 100);
+    doc.text(contentPlan.strategyName, margin, y);
+    y += 15;
+
+    // Brand Analysis Section
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    doc.text("Brand DNA Analysis", margin, y);
+    y += 8;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    const brandInfo = [
+      `Tone: ${contentPlan.brandAnalysis.tone}`,
+      `Voice: ${contentPlan.brandAnalysis.voice}`,
+      `Personality: ${contentPlan.brandAnalysis.personality}`,
+      `Palette: ${contentPlan.brandAnalysis.suggestedColors.join(", ")}`
+    ];
+    
+    brandInfo.forEach(line => {
+      doc.text(line, margin, y);
+      y += 6;
+    });
+    y += 10;
+
+    // Executive Summary
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Executive Summary", margin, y);
+    y += 6;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    const summaryLines = doc.splitTextToSize(contentPlan.executiveSummary, 170);
+    doc.text(summaryLines, margin, y);
+    y += (summaryLines.length * 5) + 15;
+
+    // Slices Section
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Content Pipeline Slices", margin, y);
+    y += 10;
+
+    contentPlan.slices.forEach((slice, index) => {
+      // Page break check
+      if (y > 250) {
+        doc.addPage();
+        y = margin;
+      }
+
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(234, 88, 12); // Orange color
+      doc.text(`${index + 1}. ${slice.channel} (${slice.format})`, margin, y);
+      y += 8;
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0, 0, 0);
+      doc.text("Hook:", margin, y);
+      y += 5;
+      doc.setFont("helvetica", "normal");
+      const hookLines = doc.splitTextToSize(slice.hook, 170);
+      doc.text(hookLines, margin, y);
+      y += (hookLines.length * 5) + 5;
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Body Content:", margin, y);
+      y += 5;
+      doc.setFont("helvetica", "normal");
+      const bodyLines = doc.splitTextToSize(slice.body, 170);
+      doc.text(bodyLines, margin, y);
+      y += (bodyLines.length * 5) + 5;
+
+      doc.setFont("helvetica", "bold");
+      doc.text("CTA:", margin, y);
+      doc.setFont("helvetica", "normal");
+      doc.text(slice.callToAction, margin + 15, y);
+      y += 15;
+    });
+
+    doc.save(`${contentPlan.strategyName.replace(/\s+/g, '_')}_Strategy.pdf`);
   };
 
   return (
@@ -61,18 +153,18 @@ const App: React.FC = () => {
           {/* Left Column: Input Form */}
           <div className="lg:col-span-4 space-y-8">
             <div className="space-y-4">
-              <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-                Brand-Aligned <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-600 to-amber-500">Turkey Slicer</span>
+              <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
+                AI <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-600 to-amber-500">ContentCrafter</span>
               </h2>
               <p className="text-sm text-slate-600 leading-relaxed">
-                We'll crawl your website to extract your brand DNA—tone, voice, and colors—before slicing your core content into a cohesive multi-channel strategy.
+                Repurpose your Cornerstone Content into a full-scale multi-channel pipeline including Instagram Reels, YouTube scripts, and ads.
               </p>
             </div>
 
             <TurkeyForm onSubmit={handleGenerate} isLoading={isLoading} />
             
             {error && (
-              <div className="bg-red-50 border border-red-200 p-4 rounded-xl text-red-700 text-xs font-medium">
+              <div className="bg-red-50 border border-red-200 p-4 rounded-xl text-red-700 text-xs font-medium animate-pulse">
                 {error}
               </div>
             )}
@@ -82,35 +174,65 @@ const App: React.FC = () => {
           <div className="lg:col-span-8 space-y-8">
             {contentPlan ? (
               <div id="results-section" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                
+                {/* Results Header with Actions */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-2">
+                  <h3 className="text-xl font-bold text-slate-800">Generated Pipeline</h3>
+                  <div className="flex items-center space-x-3">
+                    <button 
+                      onClick={handleDownloadPDF}
+                      className="inline-flex items-center space-x-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all shadow-md active:scale-95"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      <span>Download PDF Strategy</span>
+                    </button>
+                    <button 
+                      onClick={() => setContentPlan(null)}
+                      className="text-xs font-bold text-slate-500 hover:text-orange-600 px-3 py-2 bg-white border border-slate-200 rounded-xl transition-all"
+                    >
+                      Start New
+                    </button>
+                  </div>
+                </div>
+
                 {/* Brand Identity Header */}
-                <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="md:col-span-2 space-y-3">
+                <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-6 relative overflow-hidden">
+                   <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                     <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.628.283a2 2 0 01-1.198.043l-2.431-.73a2 2 0 01-1.28-1.907v-4.577a2 2 0 011.105-1.79l2.352-1.177a2 2 0 011.697 0l2.352 1.177A2 2 0 0115.422 8.35v1.306a2 2 0 001.242 1.848l.44.176a2 2 0 011.169 2.531l-.845 2.112a2 2 0 01-1.996 1.304l-1.004-.001a2 2 0 00-1.854 1.144l-.845 2.112z" />
+                      </svg>
+                   </div>
+                  <div className="md:col-span-2 space-y-3 relative z-10">
                     <div className="flex items-center space-x-2">
-                      <div className="px-2 py-0.5 bg-orange-100 text-orange-600 text-[10px] font-bold rounded uppercase">Brand Analysis Result</div>
+                      <div className="px-2 py-0.5 bg-orange-100 text-orange-600 text-[10px] font-bold rounded uppercase tracking-wider">Strategic Pipeline</div>
                     </div>
-                    <h3 className="text-xl font-bold text-slate-900">{contentPlan.strategyName}</h3>
-                    <p className="text-xs text-slate-500">{contentPlan.executiveSummary}</p>
+                    <h3 className="text-2xl font-bold text-slate-900 leading-tight">{contentPlan.strategyName}</h3>
+                    <p className="text-xs text-slate-500 line-clamp-2">{contentPlan.executiveSummary}</p>
                     <div className="flex flex-wrap gap-2 pt-2">
-                      <span className="text-[10px] px-2 py-1 bg-slate-100 rounded-full font-semibold">Tone: {contentPlan.brandAnalysis.tone}</span>
-                      <span className="text-[10px] px-2 py-1 bg-slate-100 rounded-full font-semibold">Voice: {contentPlan.brandAnalysis.voice}</span>
+                      <span className="text-[10px] px-2 py-1 bg-slate-50 border border-slate-100 rounded-lg font-semibold text-slate-600">Tone: {contentPlan.brandAnalysis.tone}</span>
+                      <span className="text-[10px] px-2 py-1 bg-slate-50 border border-slate-100 rounded-lg font-semibold text-slate-600">Voice: {contentPlan.brandAnalysis.voice}</span>
                     </div>
                   </div>
-                  <div className="space-y-3 border-l border-slate-100 pl-6">
-                    <h4 className="text-[10px] font-bold text-slate-400 uppercase">Brand Palette</h4>
-                    <div className="flex items-center space-x-2">
-                      {contentPlan.brandAnalysis.suggestedColors.map((color, i) => (
-                        <div key={i} className="group relative">
-                          <div 
-                            className="w-8 h-8 rounded-full border border-slate-200 shadow-inner cursor-help"
-                            style={{ backgroundColor: color }}
-                          />
-                          <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[8px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                            {color}
+                  <div className="space-y-4 border-l border-slate-100 pl-6 relative z-10">
+                    <div>
+                      <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Brand Palette</h4>
+                      <div className="flex items-center space-x-2">
+                        {contentPlan.brandAnalysis.suggestedColors.map((color, i) => (
+                          <div key={i} className="group relative">
+                            <div 
+                              className="w-8 h-8 rounded-full border border-slate-200 shadow-inner cursor-help hover:scale-110 transition-transform"
+                              style={{ backgroundColor: color }}
+                            />
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                    <p className="text-[10px] text-slate-400 italic">Personality: {contentPlan.brandAnalysis.personality}</p>
+                    <div>
+                      <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Identity</h4>
+                      <p className="text-[10px] text-slate-600 font-medium">{contentPlan.brandAnalysis.personality}</p>
+                    </div>
                   </div>
                 </div>
 
@@ -120,34 +242,54 @@ const App: React.FC = () => {
                   ))}
                 </div>
                 
-                <div className="text-center">
+                <div className="pt-8 text-center">
                    <button 
                     onClick={() => setContentPlan(null)}
-                    className="text-xs font-bold text-slate-400 hover:text-orange-600 underline"
+                    className="inline-flex items-center space-x-2 px-6 py-2.5 bg-white border border-slate-200 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
                   >
-                    Reset & start new campaign
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 15l-3-3m0 0l3-3m-3 3h8M3 12a9 9 0 1118 0 9 9 0 01-18 0z" />
+                    </svg>
+                    <span>Back to Inputs</span>
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="h-full min-h-[500px] flex flex-col items-center justify-center text-center space-y-6 border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50/50 px-8">
+              <div className="h-full min-h-[600px] flex flex-col items-center justify-center text-center space-y-8 border-2 border-dashed border-slate-200 rounded-3xl bg-white/50 px-12 transition-all hover:bg-white/80">
                 <div className="relative">
-                  <div className="w-20 h-20 bg-white rounded-2xl shadow-xl flex items-center justify-center text-orange-500 transform -rotate-12 border border-slate-100">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  <div className="w-24 h-24 bg-white rounded-3xl shadow-2xl flex items-center justify-center text-orange-500 transform rotate-6 border border-slate-100">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.628.283a2 2 0 01-1.198.043l-2.431-.73a2 2 0 01-1.28-1.907v-4.577a2 2 0 011.105-1.79l2.352-1.177a2 2 0 011.697 0l2.352 1.177A2 2 0 0115.422 8.35v1.306a2 2 0 001.242 1.848l.44.176a2 2 0 011.169 2.531l-.845 2.112a2 2 0 01-1.996 1.304l-1.004-.001a2 2 0 00-1.854 1.144l-.845 2.112z" />
                     </svg>
                   </div>
-                  <div className="absolute -top-4 -right-4 w-12 h-12 bg-amber-400 rounded-full flex items-center justify-center text-white shadow-lg animate-bounce">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.143-5.714L5 13l5.714-2.143L13 3z" />
+                  <div className="absolute -top-4 -right-4 w-14 h-14 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center text-white shadow-xl animate-bounce">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <h3 className="text-xl font-bold text-slate-800">Analyze Your Brand Voice</h3>
-                  <p className="text-slate-500 max-w-sm mx-auto text-sm">
-                    Enter your website URL. We'll identify your unique brand DNA and use it to slice your cornerstone content into professional assets.
+                <div className="space-y-4 max-w-sm">
+                  <h3 className="text-2xl font-extrabold text-slate-800 tracking-tight">Generate Your Omichannel Pipeline</h3>
+                  <p className="text-slate-500 text-sm leading-relaxed">
+                    Select your channels, paste your cornerstone content, and let AI analyze your brand to build a professional, visual content engine.
                   </p>
+                </div>
+                <div className="flex gap-4 pt-4">
+                  <div className="flex flex-col items-center">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mb-1">
+                      <span className="text-xs font-bold">In</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <div className="w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center text-pink-600 mb-1">
+                      <span className="text-xs font-bold">Ig</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-600 mb-1">
+                      <span className="text-xs font-bold">Yt</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -157,8 +299,8 @@ const App: React.FC = () => {
 
       <footer className="bg-white border-t border-slate-200 py-8">
         <div className="max-w-7xl mx-auto px-4 text-center">
-          <p className="text-xs text-slate-400 font-medium tracking-wide uppercase">
-            &copy; {new Date().getFullYear()} Turkey Slicer Content Pipeline Engine
+          <p className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">
+            &copy; {new Date().getFullYear()} ContentCrafter &bull; Omnichannel Content Repurposing Engine
           </p>
         </div>
       </footer>
