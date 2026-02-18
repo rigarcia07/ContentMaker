@@ -13,7 +13,7 @@ const Header: React.FC = () => {
               </svg>
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900 leading-none">ContentCrafter</h1>
+              <h1 className="text-xl font-bold text-slate-900 leading-none">Contenize</h1>
               <p className="text-xs text-slate-500 font-medium">Omnichannel Content Engine</p>
             </div>
           </div>

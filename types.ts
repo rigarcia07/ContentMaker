@@ -9,11 +9,20 @@ export interface ContentBrief {
   selectedChannels: string[];
 }
 
+export interface SEOKeyword {
+  term: string;
+  intent: 'Informational' | 'Transactional' | 'Navigational' | 'Commercial';
+}
+
 export interface BrandAnalysis {
   tone: string;
+  toneSentiment: string;
   voice: string;
+  voiceSentiment: string;
   suggestedColors: string[];
   personality: string;
+  brandKeywords: string[];
+  seoKeywords: SEOKeyword[];
 }
 
 export interface ContentSlice {
@@ -26,6 +35,11 @@ export interface ContentSlice {
   estimatedEffort: 'Low' | 'Medium' | 'High';
   imagePrompt: string;
   imageUrl?: string;
+  // SEO Specific Fields
+  seoTitle?: string;
+  seoDescription?: string;
+  primaryKeyword?: string;
+  altText?: string;
 }
 
 export interface ContentPlan {

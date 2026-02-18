@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { ContentBrief } from '../types';
 import { recommendChannels } from '../services/geminiService';
 
+// Added missing interface for component props
 interface TurkeyFormProps {
   onSubmit: (brief: ContentBrief) => void;
   isLoading: boolean;
@@ -18,11 +19,16 @@ const CHANNELS = [
   { id: 'instagram_post', label: 'Instagram Post', group: 'Social' },
   { id: 'instagram_reel', label: 'Instagram Reel', group: 'Social' },
   { id: 'instagram_ad', label: 'Instagram Ad', group: 'Social' },
+  { id: 'tiktok_video', label: 'TikTok Video', group: 'Social' },
+  { id: 'pinterest_pin', label: 'Pinterest Pin', group: 'Social' },
   { id: 'facebook_post', label: 'Facebook Post', group: 'Social' },
   { id: 'facebook_ad', label: 'Facebook Ad', group: 'Social' },
   { id: 'youtube_video', label: 'YouTube Video', group: 'Video' },
   { id: 'youtube_short', label: 'YouTube Short', group: 'Video' },
+  { id: 'youtube_ad', label: 'YouTube Ad', group: 'Video' },
 ];
+
+const GROUPS = ['Professional', 'Social', 'Video'];
 
 const TurkeyForm: React.FC<TurkeyFormProps> = ({ onSubmit, isLoading }) => {
   const [isRecommending, setIsRecommending] = useState(false);
@@ -34,7 +40,7 @@ const TurkeyForm: React.FC<TurkeyFormProps> = ({ onSubmit, isLoading }) => {
     objective: '',
     targetAudience: '',
     coreContent: '',
-    selectedChannels: ['linkedin_post', 'twitter', 'instagram_post']
+    selectedChannels: ['linkedin_post', 'linkedin_article', 'twitter', 'instagram_post']
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -65,7 +71,6 @@ const TurkeyForm: React.FC<TurkeyFormProps> = ({ onSubmit, isLoading }) => {
         targetAudience: formData.targetAudience
       });
       setRecommended(recs);
-      // Auto-select them as well for convenience
       setFormData(prev => ({
         ...prev,
         selectedChannels: Array.from(new Set([...prev.selectedChannels, ...recs]))
@@ -156,7 +161,20 @@ const TurkeyForm: React.FC<TurkeyFormProps> = ({ onSubmit, isLoading }) => {
       </div>
 
       <div>
-        <div className="flex items-center justify-between mb-2">
+        <label className="block text-sm font-semibold text-slate-700 mb-2">Cornerstone Content</label>
+        <textarea
+          required
+          name="coreContent"
+          value={formData.coreContent}
+          onChange={handleChange}
+          rows={5}
+          placeholder="Paste your long-form cornerstone content here..."
+          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all outline-none resize-none text-sm"
+        ></textarea>
+      </div>
+
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
           <label className="block text-sm font-semibold text-slate-700">Target Channels</label>
           <button
             type="button"
@@ -181,43 +199,36 @@ const TurkeyForm: React.FC<TurkeyFormProps> = ({ onSubmit, isLoading }) => {
             )}
           </button>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {CHANNELS.map(ch => {
-            const isRec = recommended.includes(ch.id);
-            return (
-              <button
-                key={ch.id}
-                type="button"
-                onClick={() => toggleChannel(ch.id)}
-                className={`relative px-3 py-2 rounded-lg text-[10px] font-bold border transition-all overflow-hidden ${
-                  formData.selectedChannels.includes(ch.id)
-                  ? 'bg-orange-600 border-orange-600 text-white shadow-md'
-                  : 'bg-white border-slate-200 text-slate-600 hover:border-orange-300'
-                } ${isRec && !formData.selectedChannels.includes(ch.id) ? 'ring-2 ring-orange-200 border-orange-300' : ''}`}
-              >
-                {isRec && (
-                   <div className="absolute top-0 right-0">
-                     <div className="bg-amber-400 text-white text-[7px] px-1 py-0.5 rounded-bl-md font-black uppercase">Top Pick</div>
-                   </div>
-                )}
-                {ch.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
 
-      <div>
-        <label className="block text-sm font-semibold text-slate-700 mb-2">Cornerstone Content (The "Big Turkey")</label>
-        <textarea
-          required
-          name="coreContent"
-          value={formData.coreContent}
-          onChange={handleChange}
-          rows={5}
-          placeholder="Paste your long-form cornerstone content here..."
-          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all outline-none resize-none text-sm"
-        ></textarea>
+        {GROUPS.map(group => (
+          <div key={group} className="space-y-2">
+            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">{group} Channels</h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {CHANNELS.filter(ch => ch.group === group).map(ch => {
+                const isRec = recommended.includes(ch.id);
+                return (
+                  <button
+                    key={ch.id}
+                    type="button"
+                    onClick={() => toggleChannel(ch.id)}
+                    className={`relative px-3 py-2 rounded-lg text-[10px] font-bold border transition-all overflow-hidden ${
+                      formData.selectedChannels.includes(ch.id)
+                      ? 'bg-orange-600 border-orange-600 text-white shadow-md'
+                      : 'bg-white border-slate-200 text-slate-600 hover:border-orange-300'
+                    } ${isRec && !formData.selectedChannels.includes(ch.id) ? 'ring-2 ring-orange-200 border-orange-300' : ''}`}
+                  >
+                    {isRec && (
+                       <div className="absolute top-0 right-0">
+                         <div className="bg-amber-400 text-white text-[7px] px-1 py-0.5 rounded-bl-md font-black uppercase">Top Pick</div>
+                       </div>
+                    )}
+                    {ch.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
 
       <button
